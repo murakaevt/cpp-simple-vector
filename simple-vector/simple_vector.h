@@ -166,25 +166,7 @@ public:
             size_ = std::move(new_size);
         }
     }
-        /*  if (new_size <= capacity_) {
-            if (new_size >= size_) {
-                std::generate(vector_.Get() + size_, vector_.Get() + new_size, std::move(p));
-                size_ = std::move(new_size);
-            }
-            if (new_size < size_) {
-                size_ = std::move(new_size);
-            }
-        }
-        else {
-            ArrayPtr<Type> temp(new_size);
-            std::generate(temp.Get(), temp.Get() + new_size, std::move(p));
-            std::move(std::make_move_iterator(vector_.Get()), std::make_move_iterator(vector_.Get() + size_), temp.Get());
-            vector_ = std::move(temp);
-            size_ = std::move(new_size);
-            capacity_ = size_;
-        } */
-    
-         
+                
     // Добавляет элемент в конец вектора
     // При нехватке места увеличивает вдвое вместимость вектора
     void PushBack(const Type& item) {
