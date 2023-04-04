@@ -25,38 +25,30 @@ public:
     SimpleVector() noexcept = default;
 
     // Создаёт вектор из size элементов, инициализированных значением по умолчанию
-    explicit SimpleVector(size_t size) {
+    explicit SimpleVector(size_t size)
+        : size_(size), capacity_(size)
+    {
         ArrayPtr<Type> temp(size);
-        std::fill(temp.Get(), temp.Get() + size, 0);
+        std::fill(temp.Get(), temp.Get() + size, Type{});
         vector_.swap(temp);
-        size_ = size;
-        capacity_ = size;
     }
 
     // Создаёт вектор из size элементов, инициализированных значением value
-    SimpleVector(size_t size, const Type& value) {
-        if (size == 0) {
-            ArrayPtr<Type> temp(size);
-            vector_.swap(temp);
-            size_ = size;
-            capacity_ = size;
-        }
-        else {
-            ArrayPtr<Type> temp(size);
-            std::fill(temp.Get(), temp.Get() + size, value);
-            vector_.swap(temp);
-            size_ = size;
-            capacity_ = size;
-        }
+    SimpleVector(size_t size, const Type& value)
+        : size_(size), capacity_(size)
+    {
+        ArrayPtr<Type> temp(size);
+        std::fill(temp.Get(), temp.Get() + size, value);
+        vector_.swap(temp);
     }
 
     // Создаёт вектор из std::initializer_list
-    SimpleVector(std::initializer_list<Type> init) {
+    SimpleVector(std::initializer_list<Type> init)
+        : size_(init.size()), capacity_(init.size())
+    {
         ArrayPtr<Type> temp(init.size());
         std::copy(init.begin(), init.end(), temp.Get());
         vector_.swap(temp);
-        size_ = init.size();
-        capacity_ = init.size();
     }
 
     SimpleVector(const SimpleVector& other) {
@@ -65,24 +57,22 @@ public:
         this->swap(temp);
     }
 
-    SimpleVector(SimpleVector&& other) {
+    SimpleVector(SimpleVector&& other)
+        : size_(std::exchange(other.size_, 0)), capacity_(other.capacity_)
+    {
         this->vector_ = std::move(other.vector_);
-        size_ = std::exchange(other.size_, 0);
-        capacity_ = other.capacity_;
-
     }
 
-  explicit SimpleVector(ReserveProxyObj obj) {
+    explicit SimpleVector(ReserveProxyObj obj)
+        : size_(0), capacity_(obj.cap)
+    {
         ArrayPtr<Type> temp(obj.cap);
-        size_ = 0;
-        capacity_ = obj.cap;
         vector_.swap(temp);
     }
-    
+
     SimpleVector& operator=(const SimpleVector& rhs) {
         if (*this != rhs) {
-            SimpleVector<Type> temp(rhs.GetSize());
-            std::copy(rhs.cbegin(), rhs.cend(), temp.begin());
+            SimpleVector<Type> temp(rhs);
             this->swap(temp);
         }
         return *this;
@@ -114,11 +104,13 @@ public:
 
     // Возвращает ссылку на элемент с индексом index
     Type& operator[](size_t index) noexcept {
+        assert(index < size_);
         return vector_[index];
     }
 
     // Возвращает константную ссылку на элемент с индексом index
     const Type& operator[](size_t index) const noexcept {
+        assert(index < size_);
         return vector_[index];
     }
 
@@ -160,13 +152,13 @@ public:
             std::move(std::make_move_iterator(vector_.Get()), std::make_move_iterator(vector_.Get() + size_), temp.Get());
             vector_ = std::move(temp);
             size_ = std::move(new_size);
-     }
+        }
         else {
             std::generate(vector_.Get() + size_, vector_.Get() + new_size, std::move(p));
             size_ = std::move(new_size);
         }
     }
-                
+
     // Добавляет элемент в конец вектора
     // При нехватке места увеличивает вдвое вместимость вектора
     void PushBack(const Type& item) {
@@ -220,11 +212,11 @@ public:
     // Если перед вставкой значения вектор был заполнен полностью,
     // вместимость вектора должна увеличиться вдвое, а для вектора вместимостью 0 стать равной 1
     Iterator Insert(ConstIterator pos, const Type& value) {
-        size_t shift = std::distance(cbegin(), pos);
+        assert(pos >= cbegin() && pos <= cend());
+        size_t shift = static_cast<size_t>(std::distance(cbegin(), pos));
         if (size_ < capacity_) {
             size_t new_size = size_ + 1;
-            std::copy_backward(begin() + std::distance(cbegin(), pos), end(), begin() + new_size);
-            size_t shift = std::distance(cbegin(), pos);
+            std::copy_backward(begin() + shift, end(), begin() + new_size);
             vector_[shift] = value;
             size_ = new_size;
         }
@@ -239,22 +231,22 @@ public:
             }
             ArrayPtr<Type> temp(new_capacity);
             std::copy(cbegin(), pos, temp.Get());
-            temp[std::distance(cbegin(), pos)] = value;
-            std::copy(pos, cend(), temp.Get() + std::distance(cbegin(), pos + 1));
+            temp[shift] = value;
+            std::copy(pos, cend(), temp.Get() + static_cast<size_t>(std::distance(cbegin(), pos + 1)));
             vector_.swap(temp);
             size_ = new_size;
             capacity_ = new_capacity;
         }
-      
+
         return Iterator(cbegin() + shift);
     }
 
     Iterator Insert(Iterator pos, Type&& value) {
-        size_t shift = std::distance(begin(), pos);
+        assert(pos >= cbegin() && pos <= cend());
+        size_t shift = static_cast<size_t>(std::distance(begin(), pos));
         if (size_ < capacity_) {
             size_t new_size = size_ + 1;
-            std::copy_backward(std::make_move_iterator(begin() + std::distance(begin(), pos)), std::make_move_iterator(end()), begin() + new_size);
-            size_t shift = std::distance(begin(), pos);
+            std::copy_backward(std::make_move_iterator(begin() + shift), std::make_move_iterator(end()), begin() + new_size);
             vector_[shift] = std::move(value);
             size_ = new_size;
         }
@@ -269,8 +261,8 @@ public:
             }
             ArrayPtr<Type> temp(new_capacity);
             std::copy(std::make_move_iterator(begin()), std::make_move_iterator(pos), temp.Get());
-            temp[std::distance(begin(), pos)] = std::move(value);
-            std::copy(std::make_move_iterator(pos), std::make_move_iterator(end()), temp.Get() + std::distance(begin(), pos + 1));
+            temp[shift] = std::move(value);
+            std::copy(std::make_move_iterator(pos), std::make_move_iterator(end()), temp.Get() + static_cast<size_t>(std::distance(begin(), pos + 1)));
             vector_ = std::move(temp);
             size_ = new_size;
             capacity_ = new_capacity;
@@ -281,35 +273,40 @@ public:
 
     // "Удаляет" последний элемент вектора. Вектор не должен быть пустым
     void PopBack() noexcept {
+        assert(size_ > 0);
         size_--;
     }
 
     // Удаляет элемент вектора в указанной позиции
-       Iterator Erase(ConstIterator pos) {
+    Iterator Erase(ConstIterator pos) {
+        assert(pos >= cbegin() && pos < cend());
+        assert(size_ > 0);
         if (size_ == 1) {
             size_--;
         }
         else {
             size_t new_size = size_ - 1;
             auto it = std::next(pos, 1);
-            std::copy(it, cend(), begin() + std::distance(cbegin(), pos));
+            std::copy(it, cend(), begin() + static_cast<size_t>(std::distance(cbegin(), pos)));
             size_ = new_size;
         }
-        return Iterator(cbegin() + std::distance(cbegin(), pos));
+        return Iterator(cbegin() + static_cast<size_t>(std::distance(cbegin(), pos)));
     }
 
-       Iterator Erase(Iterator pos) {
-           if (size_ == 1) {
-               size_--;
-           }
-           else {
-               size_t new_size = size_ - 1;
-               auto it = std::next(pos, 1);
-               std::copy(std::make_move_iterator(it), std::make_move_iterator(end()), begin() + std::distance(begin(), pos));
-               size_ = new_size;
-           }
-           return Iterator(begin() + std::distance(begin(), pos));
-       }
+    Iterator Erase(Iterator pos) {
+        assert(pos >= begin() && pos < end());
+        assert(size_ > 0);
+        if (size_ == 1) {
+            size_--;
+        }
+        else {
+            size_t new_size = size_ - 1;
+            auto it = std::next(pos, 1);
+            std::copy(std::make_move_iterator(it), std::make_move_iterator(end()), begin() + static_cast<size_t>(std::distance(begin(), pos)));
+            size_ = new_size;
+        }
+        return Iterator(begin() + static_cast<size_t>(std::distance(begin(), pos)));
+    }
 
     // Обменивает значение с другим вектором
     void swap(SimpleVector& other) noexcept {
