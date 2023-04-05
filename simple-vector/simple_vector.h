@@ -35,7 +35,7 @@ public:
 
     // Создаёт вектор из size элементов, инициализированных значением value
     SimpleVector(size_t size, const Type& value)
-        : size_(size), capacity_(size)
+        : size_(size), capacity_(size), vector_(size)
     {
         ArrayPtr<Type> temp(size);
         std::fill(temp.Get(), temp.Get() + size, value);
@@ -44,7 +44,7 @@ public:
 
     // Создаёт вектор из std::initializer_list
     SimpleVector(std::initializer_list<Type> init)
-        : size_(init.size()), capacity_(init.size())
+        : size_(init.size()), capacity_(init.size()), vector_(init.size())
     {
         ArrayPtr<Type> temp(init.size());
         std::copy(init.begin(), init.end(), temp.Get());
@@ -64,7 +64,7 @@ public:
     }
 
     explicit SimpleVector(ReserveProxyObj obj)
-        : size_(0), capacity_(obj.cap)
+        : size_(0), capacity_(obj.cap), vector_(obj.cap)
     {
         ArrayPtr<Type> temp(obj.cap);
         vector_.swap(temp);
@@ -80,9 +80,9 @@ public:
 
     SimpleVector& operator=(SimpleVector&& rhs) {
         if (*this != rhs) {
-            this->vector_ = std::move(rhs.vector_);//ArrayPtr<Type> temp(rhs.GetSize());
-            size_ = rhs.size_; //std::copy(rhs.cbegin(), rhs.cend(), temp.begin());
-            capacity_ = rhs.capacity_; //this->swap(temp);
+            this->vector_ = std::move(rhs.vector_);
+            size_ = rhs.size_;
+            capacity_ = rhs.capacity_;
         }
         return *this;
     }
